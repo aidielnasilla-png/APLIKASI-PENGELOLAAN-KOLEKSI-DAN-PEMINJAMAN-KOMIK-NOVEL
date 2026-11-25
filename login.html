@@ -1,0 +1,31 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - KoleksiKu</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="logo">📚</div>
+    <h1>KoleksiKu</h1>
+    <p>Pengelolaan Koleksi dan Peminjaman Komik/Novel</p>
+
+    <form id="loginForm">
+      <label for="username">Username</label>
+      <input id="username" type="text" placeholder="Masukkan username" required>
+
+      <label for="password">Password</label>
+      <input id="password" type="password" placeholder="Masukkan password" required>
+
+      <button type="submit">Masuk ke Aplikasi</button>
+      <p id="loginMessage" class="message"></p>
+    </form>
+
+    <small>Akun demo: admin / koleksiku123</small>
+  </div>
+  <script src="auth.js"></script>
+</body>
+</html>
