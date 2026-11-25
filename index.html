@@ -4,279 +4,182 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aplikasi Koleksi Komik & Novel</title>
+  <title>Dashboard - KoleksiKu</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <script>
+    if (sessionStorage.getItem("koleksikuLogin") !== "true") {
+      window.location.replace("login.html");
+    }
+  </script>
 
-<header>
-  <h1>📚 Koleksi Komik & Novel</h1>
-  <p>Aplikasi Pengelolaan Koleksi dan Peminjaman Pribadi</p>
-</header>
+  <header class="topbar">
+    <h2>📚 KoleksiKu</h2>
+    <button class="logout-btn" onclick="logout()">Keluar</button>
+  </header>
 
-<nav>
-  <button class="active" data-page="dashboard">Dashboard</button>
-  <button data-page="koleksi">Data Koleksi</button>
-  <button data-page="teman">Data Teman</button>
-  <button data-page="transaksi">Peminjaman</button>
-  <button data-page="riwayat">Riwayat</button>
-</nav>
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>Menu Utama</h3>
+      <button class="menu active" data-page="dashboard">Dashboard</button>
+      <button class="menu" data-page="koleksi">Koleksi Buku</button>
+      <button class="menu" data-page="genre">Genre / Kategori</button>
+      <button class="menu" data-page="teman">Data Teman</button>
+      <button class="menu" data-page="peminjaman">Peminjaman</button>
+      <button class="menu" data-page="laporan">Laporan</button>
+    </aside>
 
-<main>
-  <section id="dashboard" class="page active">
-    <h2>Dashboard</h2>
+    <main class="content">
+      <section id="dashboard" class="page">
+        <h1>Dashboard</h1>
+        <p>Selamat datang di aplikasi KoleksiKu.</p>
 
-    <div class="cards">
-      <div class="card">
-        <p>Total Koleksi</p>
-        <h3 id="totalKoleksi">0</h3>
+        <div class="stats">
+          <div class="stat-card">
+            <span>Total Judul Buku</span>
+            <h2 id="totalBuku">0</h2>
+          </div>
+          <div class="stat-card">
+            <span>Total Eksemplar</span>
+            <h2 id="totalEksemplar">0</h2>
+          </div>
+          <div class="stat-card">
+            <span>Sedang Dipinjam</span>
+            <h2 id="totalDipinjam">0</h2>
+          </div>
+          <div class="stat-card">
+            <span>Jumlah Teman</span>
+            <h2 id="totalTeman">0</h2>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Informasi Aplikasi</h3>
+          <p>Aplikasi ini membantu mencatat koleksi komik dan novel,
+            data teman, serta transaksi peminjaman dan pengembalian buku.</p>
+        </div>
+      </section>
+
+      <section id="koleksi" class="page hidden">
+        <h1>Koleksi Buku</h1>
+        <div class="toolbar">
+          <input id="cariBuku" placeholder="Cari judul, penulis, atau genre...">
+          <button id="tambahBuku">+ Tambah Buku</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Judul</th><th>Penulis</th><th>Genre</th>
+                <th>Tahun</th><th>Stok</th><th>Tersedia</th><th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tabelBuku"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="genre" class="page hidden">
+        <h1>Genre / Kategori</h1>
+        <form id="genreForm" class="inline-form">
+          <input id="namaGenre" placeholder="Nama genre baru" required>
+          <button type="submit">Tambah Genre</button>
+        </form>
+        <ul id="daftarGenre" class="simple-list"></ul>
+      </section>
+
+      <section id="teman" class="page hidden">
+        <h1>Data Teman</h1>
+        <form id="temanForm" class="inline-form">
+          <input id="namaTeman" placeholder="Nama teman" required>
+          <input id="kontakTeman" placeholder="Kontak (opsional)">
+          <button type="submit">Tambah Teman</button>
+        </form>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nama</th><th>Kontak</th><th>Aksi</th></tr></thead>
+            <tbody id="tabelTeman"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="peminjaman" class="page hidden">
+        <h1>Peminjaman dan Pengembalian</h1>
+        <form id="pinjamForm" class="form-grid">
+          <label>Teman
+            <select id="pilihTeman" required></select>
+          </label>
+          <label>Buku
+            <select id="pilihBuku" required></select>
+          </label>
+          <label>Tanggal Pinjam
+            <input id="tanggalPinjam" type="date" required>
+          </label>
+          <button type="submit">Catat Peminjaman</button>
+        </form>
+
+        <h3>Riwayat Transaksi</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Teman</th><th>Buku</th><th>Tanggal Pinjam</th>
+                <th>Status</th><th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tabelPinjam"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="laporan" class="page hidden">
+        <h1>Laporan dan Rekap</h1>
+        <div class="stats">
+          <div class="stat-card">
+            <span>Judul Buku</span><h2 id="laporanJudul">0</h2>
+          </div>
+          <div class="stat-card">
+            <span>Eksemplar Tersedia</span><h2 id="laporanTersedia">0</h2>
+          </div>
+          <div class="stat-card">
+            <span>Transaksi Peminjaman</span><h2 id="laporanTransaksi">0</h2>
+          </div>
+        </div>
+        <button id="cetakLaporan">Cetak Laporan</button>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="dialogBuku">
+    <form id="bukuForm">
+      <h2 id="judulForm">Tambah Buku</h2>
+      <input id="idBuku" type="hidden">
+
+      <label>Judul buku
+        <input id="judulBuku" required>
+      </label>
+      <label>Penulis
+        <input id="penulisBuku" required>
+      </label>
+      <label>Genre
+        <select id="genreBuku" required></select>
+      </label>
+      <label>Tahun terbit
+        <input id="tahunBuku" type="number" min="1" max="2100" required>
+      </label>
+      <label>Jumlah eksemplar
+        <input id="stokBuku" type="number" min="1" value="1" required>
+      </label>
+
+      <div class="dialog-actions">
+        <button type="submit">Simpan</button>
+        <button type="button" id="batalBuku" class="secondary">Batal</button>
       </div>
-      <div class="card">
-        <p>Koleksi Tersedia</p>
-        <h3 id="totalTersedia">0</h3>
-      </div>
-      <div class="card">
-        <p>Sedang Dipinjam</p>
-        <h3 id="totalDipinjam">0</h3>
-      </div>
-      <div class="card">
-        <p>Jumlah Teman</p>
-        <h3 id="totalTeman">0</h3>
-      </div>
-    </div>
+    </form>
+  </dialog>
 
-    <div class="panel">
-      <h3>Selamat Datang!</h3>
-      <p class="deskripsi">
-        Aplikasi ini membantu mencatat koleksi komik dan novel,
-        mengelola data teman, memantau peminjaman, serta mencatat
-        pengembalian agar tidak lupa siapa yang meminjam koleksi.
-      </p>
-    </div>
-
-    <div class="panel">
-      <h3>Peminjaman yang Belum Dikembalikan</h3>
-      <div id="ringkasanPinjaman"></div>
-    </div>
-  </section>
-
-  <section id="koleksi" class="page">
-    <h2>Data Koleksi</h2>
-
-    <div class="panel">
-      <h3 id="judulFormKoleksi">Tambah Koleksi</h3>
-
-      <form id="formKoleksi">
-        <input type="hidden" id="koleksiId">
-
-        <div class="field">
-          <label for="judul">Judul Komik/Novel</label>
-          <input id="judul" required placeholder="Contoh: One Piece">
-        </div>
-
-        <div class="field">
-          <label for="penulis">Penulis</label>
-          <input id="penulis" required>
-        </div>
-
-        <div class="field">
-          <label for="jenis">Jenis</label>
-          <select id="jenis" required>
-            <option value="Komik">Komik</option>
-            <option value="Novel">Novel</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="genre">Genre</label>
-          <input id="genre" required placeholder="Fantasi, aksi, dll.">
-        </div>
-
-        <div class="field">
-          <label for="volume">Volume</label>
-          <input id="volume" required placeholder="1, 2, 3, atau lengkap">
-        </div>
-
-        <div class="field">
-          <label for="tahun">Tahun Terbit</label>
-          <input id="tahun" type="number" min="1" max="9999" required>
-        </div>
-
-        <div class="field">
-          <label for="jumlah">Jumlah Eksemplar</label>
-          <input id="jumlah" type="number" min="1" required value="1">
-        </div>
-
-        <div class="field">
-          <label for="kondisi">Kondisi</label>
-          <select id="kondisi">
-            <option>Baik</option>
-            <option>Cukup Baik</option>
-            <option>Rusak</option>
-          </select>
-        </div>
-
-        <div class="form-actions">
-          <button class="primary" type="submit">Simpan Koleksi</button>
-          <button class="secondary" type="button"
-            onclick="resetFormKoleksi()">Batal / Reset</button>
-        </div>
-      </form>
-    </div>
-
-    <div class="panel">
-      <h3>Daftar Koleksi</h3>
-      <input class="search" id="cariKoleksi"
-        placeholder="Cari judul, penulis, atau genre...">
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Judul</th>
-              <th>Penulis</th>
-              <th>Jenis</th>
-              <th>Genre</th>
-              <th>Volume</th>
-              <th>Tahun</th>
-              <th>Jumlah</th>
-              <th>Tersedia</th>
-              <th>Kondisi</th>
-              <th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody id="tabelKoleksi"></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <section id="teman" class="page">
-    <h2>Data Teman / Peminjam</h2>
-
-    <div class="panel">
-      <h3 id="judulFormTeman">Tambah Teman</h3>
-
-      <form id="formTeman">
-        <input type="hidden" id="temanId">
-
-        <div class="field">
-          <label for="namaTeman">Nama Teman</label>
-          <input id="namaTeman" required>
-        </div>
-
-        <div class="field">
-          <label for="kontakTeman">Nomor HP / Kontak</label>
-          <input id="kontakTeman" placeholder="Opsional">
-        </div>
-
-        <div class="form-actions">
-          <button class="primary" type="submit">Simpan Teman</button>
-          <button class="secondary" type="button"
-            onclick="resetFormTeman()">Batal / Reset</button>
-        </div>
-      </form>
-    </div>
-
-    <div class="panel">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Nama</th>
-              <th>Kontak</th>
-              <th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody id="tabelTeman"></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <section id="transaksi" class="page">
-    <h2>Peminjaman Koleksi</h2>
-
-    <div class="panel">
-      <form id="formPinjam">
-        <div class="field">
-          <label for="pilihKoleksi">Pilih Koleksi</label>
-          <select id="pilihKoleksi" required></select>
-        </div>
-
-        <div class="field">
-          <label for="pilihTeman">Nama Peminjam</label>
-          <select id="pilihTeman" required></select>
-        </div>
-
-        <div class="field">
-          <label for="tanggalPinjam">Tanggal Pinjam</label>
-          <input id="tanggalPinjam" type="date" required>
-        </div>
-
-        <div class="field">
-          <label for="tanggalKembali">Batas Pengembalian</label>
-          <input id="tanggalKembali" type="date" required>
-        </div>
-
-        <div class="form-actions">
-          <button class="primary" type="submit">
-            Catat Peminjaman
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <div class="panel">
-      <h3>Transaksi Aktif</h3>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Judul</th>
-              <th>Peminjam</th>
-              <th>Tanggal Pinjam</th>
-              <th>Batas Kembali</th>
-              <th>Status</th>
-              <th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody id="tabelAktif"></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <section id="riwayat" class="page">
-    <h2>Riwayat Peminjaman</h2>
-
-    <div class="panel">
-      <input class="search" id="cariRiwayat"
-        placeholder="Cari judul atau nama peminjam...">
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Judul</th>
-              <th>Peminjam</th>
-              <th>Tanggal Pinjam</th>
-              <th>Batas Kembali</th>
-              <th>Tanggal Kembali</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="tabelRiwayat"></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-</main>
-
-<footer>
-  Aplikasi Pengelolaan Koleksi & Peminjaman Komik/Novel
-</footer>
-
-<script src="script.js"></script>
+  <script src="auth.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
