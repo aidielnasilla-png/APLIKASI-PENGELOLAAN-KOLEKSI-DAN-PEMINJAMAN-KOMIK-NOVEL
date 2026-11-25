@@ -1,13 +1,36 @@
 
-const $ = id => document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 
-function buatId() {
-  return Date.now().toString(36) +
-    Math.random().toString(36).slice(2, 8);
+const simpan = () => {
+  localStorage.setItem("koleksikuData", JSON.stringify(data));
+};
+
+function muatData() {
+  try {
+    const tersimpan = JSON.parse(localStorage.getItem("koleksikuData"));
+    if (tersimpan && Array.isArray(tersimpan.buku) &&
+        Array.isArray(tersimpan.genre) &&
+        Array.isArray(tersimpan.teman) &&
+        Array.isArray(tersimpan.pinjam)) {
+      return tersimpan;
+    }
+  } catch (error) {
+    console.warn("Data tersimpan tidak dapat dibaca.");
+  }
+
+  return {
+    genre: ["Komik", "Novel", "Fantasi", "Romantis"],
+    buku: [],
+    teman: [],
+    pinjam: []
+  };
 }
 
-function aman(nilai) {
-  return String(nilai ?? "").replace(/[&<>"']/g, karakter => ({
+let data = muatData();
+let halamanAktif = "dashboard";
+
+function escapeHTML(teks) {
+  return String(teks ?? "").replace(/[&<>"']/g, karakter => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
@@ -16,563 +39,404 @@ function aman(nilai) {
   })[karakter]);
 }
 
-function formatTanggal(tanggal) {
-  if (!tanggal) return "-";
-  const [tahun, bulan, hari] = tanggal.split("-");
-  return `${hari}/${bulan}/${tahun}`;
-}
-
-function tanggalLokal(tanggal) {
-  const salinan = new Date(tanggal);
-  salinan.setMinutes(
-    salinan.getMinutes() - salinan.getTimezoneOffset()
-  );
-  return salinan.toISOString().slice(0, 10);
-}
-
-// Memuat data dari browser
-function muatData() {
-  try {
-    const hasil = JSON.parse(
-      localStorage.getItem("koleksiKomikNovel")
-    );
-
-    if (
-      hasil &&
-      Array.isArray(hasil.koleksi) &&
-      Array.isArray(hasil.teman) &&
-      Array.isArray(hasil.transaksi)
-    ) {
-      return hasil;
-    }
-  } catch (error) {
-    console.error("Gagal membaca data:", error);
-  }
-
-  return {
-    koleksi: [],
-    teman: [],
-    transaksi: []
-  };
-}
-
-let data = muatData();
-
-function simpanData() {
-  try {
-    localStorage.setItem(
-      "koleksiKomikNovel",
-      JSON.stringify(data)
-    );
-  } catch (error) {
-    alert("Data gagal disimpan. Periksa penyimpanan browser.");
-    throw error;
-  }
-}
-
-function koleksiById(id) {
-  return data.koleksi.find(item => item.id === id);
-}
-
-function temanById(id) {
-  return data.teman.find(item => item.id === id);
-}
-
-// Menghitung eksemplar yang tersedia
-function tersedia(item) {
-  const dipinjam = data.transaksi.filter(
-    t => t.koleksiId === item.id &&
-         t.status === "Dipinjam"
+function angkaTersedia(buku) {
+  const dipinjam = data.pinjam.filter(
+    p => p.bukuId === buku.id && p.status === "Dipinjam"
   ).length;
 
-  return Math.max(0, item.jumlah - dipinjam);
+  return Math.max(0, Number(buku.stok) - dipinjam);
 }
 
-// Navigasi menu
-document.querySelectorAll("nav button").forEach(button => {
-  button.addEventListener("click", () => {
-    document.querySelectorAll("nav button").forEach(b =>
-      b.classList.remove("active")
-    );
+function gantiHalaman(nama) {
+  halamanAktif = nama;
 
-    document.querySelectorAll(".page").forEach(halaman =>
-      halaman.classList.remove("active")
-    );
+  document.querySelectorAll(".page").forEach(halaman => {
+    halaman.classList.toggle("hidden", halaman.id !== nama);
+  });
 
-    button.classList.add("active");
-    $(button.dataset.page).classList.add("active");
-    render();
+  document.querySelectorAll(".menu").forEach(tombol => {
+    tombol.classList.toggle("active", tombol.dataset.page === nama);
+  });
+
+  renderSemua();
+}
+
+document.querySelectorAll(".menu").forEach(tombol => {
+  tombol.addEventListener("click", () => {
+    gantiHalaman(tombol.dataset.page);
   });
 });
 
-// =============================
-// DATA KOLEKSI
-// =============================
+// GENRE / KATEGORI
 
-$("formKoleksi").addEventListener("submit", event => {
+function renderGenre() {
+  $("daftarGenre").innerHTML = data.genre.map((genre, index) => `
+    <li>
+      <span>${escapeHTML(genre)}</span>
+      <button class="danger" data-hapus-genre="${index}">Hapus</button>
+    </li>
+  `).join("");
+
+  $("genreBuku").innerHTML = data.genre.map(genre => `
+    <option value="${escapeHTML(genre)}">${escapeHTML(genre)}</option>
+  `).join("");
+}
+
+$("genreForm").addEventListener("submit", event => {
   event.preventDefault();
 
-  const id = $("koleksiId").value;
-  const jumlah = Number($("jumlah").value);
+  const nama = $("namaGenre").value.trim();
 
-  const sedangDipinjam = data.transaksi.filter(
-    t => t.koleksiId === id &&
-         t.status === "Dipinjam"
-  ).length;
+  if (!nama) return;
 
-  if (!Number.isInteger(jumlah) ||
-      jumlah < 1 ||
-      jumlah < sedangDipinjam) {
-    alert("Jumlah harus berupa bilangan bulat dan tidak boleh kurang dari jumlah yang dipinjam.");
+  if (data.genre.some(g => g.toLowerCase() === nama.toLowerCase())) {
+    alert("Genre tersebut sudah ada.");
     return;
   }
 
-  const item = {
-    id: id || buatId(),
-    judul: $("judul").value.trim(),
-    penulis: $("penulis").value.trim(),
-    jenis: $("jenis").value,
-    genre: $("genre").value.trim(),
-    volume: $("volume").value.trim(),
-    tahun: Number($("tahun").value),
-    jumlah,
-    kondisi: $("kondisi").value
+  data.genre.push(nama);
+  simpan();
+  $("namaGenre").value = "";
+  renderSemua();
+});
+
+$("daftarGenre").addEventListener("click", event => {
+  const tombol = event.target.closest("[data-hapus-genre]");
+  if (!tombol) return;
+
+  const index = Number(tombol.dataset.hapusGenre);
+  const genre = data.genre[index];
+
+  if (data.buku.some(b => b.genre === genre)) {
+    alert("Genre masih digunakan oleh buku. Ubah genre buku terlebih dahulu.");
+    return;
+  }
+
+  if (confirm(`Hapus genre "${genre}"?`)) {
+    data.genre.splice(index, 1);
+    simpan();
+    renderSemua();
+  }
+});
+
+// KOLEKSI BUKU
+
+function bukaFormBuku(id = "") {
+  if (data.genre.length === 0) {
+    alert("Tambahkan genre terlebih dahulu.");
+    gantiHalaman("genre");
+    return;
+  }
+
+  $("bukuForm").reset();
+  $("idBuku").value = id;
+
+  if (id) {
+    const buku = data.buku.find(b => b.id === id);
+    if (!buku) return;
+
+    $("judulForm").textContent = "Edit Buku";
+    $("judulBuku").value = buku.judul;
+    $("penulisBuku").value = buku.penulis;
+    $("genreBuku").value = buku.genre;
+    $("tahunBuku").value = buku.tahun;
+    $("stokBuku").value = buku.stok;
+    $("stokBuku").min = String(
+      buku.stok - data.pinjam.filter(
+        p => p.bukuId === id && p.status === "Dipinjam"
+      ).length
+    );
+  } else {
+    $("judulForm").textContent = "Tambah Buku";
+    $("stokBuku").min = "1";
+    $("stokBuku").value = "1";
+  }
+
+  $("dialogBuku").showModal();
+}
+
+$("tambahBuku").addEventListener("click", () => bukaFormBuku());
+$("batalBuku").addEventListener("click", () => $("dialogBuku").close());
+
+$("bukuForm").addEventListener("submit", event => {
+  event.preventDefault();
+
+  const id = $("idBuku").value;
+  const stok = Number($("stokBuku").value);
+
+  const bukuBaru = {
+    id: id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+    judul: $("judulBuku").value.trim(),
+    penulis: $("penulisBuku").value.trim(),
+    genre: $("genreBuku").value,
+    tahun: Number($("tahunBuku").value),
+    stok
   };
 
-  if (
-    !item.judul ||
-    !item.penulis ||
-    !item.genre ||
-    !item.volume ||
-    !Number.isInteger(item.tahun) ||
-    item.tahun < 1 ||
-    item.tahun > 9999
-  ) {
-    alert("Periksa kembali data koleksi.");
+  if (!bukuBaru.judul || !bukuBaru.penulis ||
+      !bukuBaru.genre || !bukuBaru.tahun ||
+      !Number.isInteger(stok) || stok < 1) {
+    alert("Periksa kembali data buku.");
     return;
   }
 
   if (id) {
-    data.koleksi = data.koleksi.map(k =>
-      k.id === id ? item : k
-    );
+    const lama = data.buku.find(b => b.id === id);
+    const sedangDipinjam = data.pinjam.filter(
+      p => p.bukuId === id && p.status === "Dipinjam"
+    ).length;
+
+    if (stok < sedangDipinjam) {
+      alert("Stok tidak boleh lebih kecil dari jumlah buku yang dipinjam.");
+      return;
+    }
+
+    Object.assign(lama, bukuBaru);
   } else {
-    data.koleksi.push(item);
+    data.buku.push(bukuBaru);
   }
 
-  simpanData();
-  resetFormKoleksi();
-  render();
+  simpan();
+  $("dialogBuku").close();
+  renderSemua();
 });
 
-function resetFormKoleksi() {
-  $("formKoleksi").reset();
-  $("koleksiId").value = "";
-  $("jumlah").value = 1;
-  $("judulFormKoleksi").textContent = "Tambah Koleksi";
-}
+function renderBuku() {
+  const kata = $("cariBuku").value.toLowerCase();
 
-function editKoleksi(id) {
-  const k = koleksiById(id);
-  if (!k) return;
-
-  $("koleksiId").value = k.id;
-  $("judul").value = k.judul;
-  $("penulis").value = k.penulis;
-  $("jenis").value = k.jenis;
-  $("genre").value = k.genre;
-  $("volume").value = k.volume;
-  $("tahun").value = k.tahun;
-  $("jumlah").value = k.jumlah;
-  $("kondisi").value = k.kondisi;
-
-  $("judulFormKoleksi").textContent = "Edit Koleksi";
-
-  document.querySelector('[data-page="koleksi"]').click();
-  $("judul").focus();
-}
-
-function hapusKoleksi(id) {
-  const masihDipinjam = data.transaksi.some(
-    t => t.koleksiId === id &&
-         t.status === "Dipinjam"
+  const hasil = data.buku.filter(b =>
+    `${b.judul} ${b.penulis} ${b.genre}`.toLowerCase().includes(kata)
   );
 
-  if (masihDipinjam) {
-    alert("Koleksi masih dipinjam dan tidak dapat dihapus.");
-    return;
+  $("tabelBuku").innerHTML = hasil.map(b => `
+    <tr>
+      <td>${escapeHTML(b.judul)}</td>
+      <td>${escapeHTML(b.penulis)}</td>
+      <td>${escapeHTML(b.genre)}</td>
+      <td>${b.tahun}</td>
+      <td>${b.stok}</td>
+      <td>${angkaTersedia(b)}</td>
+      <td>
+        <button data-edit-buku="${b.id}">Edit</button>
+        <button class="danger" data-hapus-buku="${b.id}">Hapus</button>
+      </td>
+    </tr>
+  `).join("");
+
+  if (hasil.length === 0) {
+    $("tabelBuku").innerHTML =
+      '<tr><td colspan="7">Belum ada data buku.</td></tr>';
+  }
+}
+
+$("cariBuku").addEventListener("input", renderBuku);
+
+$("tabelBuku").addEventListener("click", event => {
+  const edit = event.target.closest("[data-edit-buku]");
+  const hapus = event.target.closest("[data-hapus-buku]");
+
+  if (edit) {
+    bukaFormBuku(edit.dataset.editBuku);
   }
 
-  if (!confirm("Hapus koleksi ini?")) return;
+  if (hapus) {
+    const id = hapus.dataset.hapusBuku;
 
-  data.koleksi = data.koleksi.filter(k => k.id !== id);
-  simpanData();
-  render();
-}
+    if (data.pinjam.some(p => p.bukuId === id && p.status === "Dipinjam")) {
+      alert("Buku masih dipinjam dan belum bisa dihapus.");
+      return;
+    }
 
-$("cariKoleksi").addEventListener("input", renderKoleksi);
+    if (confirm("Yakin ingin menghapus buku ini?")) {
+      data.buku = data.buku.filter(b => b.id !== id);
+      data.pinjam = data.pinjam.filter(p => p.bukuId !== id);
+      simpan();
+      renderSemua();
+    }
+  }
+});
 
-function renderKoleksi() {
-  const q = $("cariKoleksi").value.toLowerCase();
-
-  const hasil = data.koleksi.filter(k =>
-    [k.judul, k.penulis, k.genre, k.jenis].some(
-      v => String(v).toLowerCase().includes(q)
-    )
-  );
-
-  $("tabelKoleksi").innerHTML = hasil.length
-    ? hasil.map(k => `
-      <tr>
-        <td>${aman(k.judul)}</td>
-        <td>${aman(k.penulis)}</td>
-        <td>${aman(k.jenis)}</td>
-        <td>${aman(k.genre)}</td>
-        <td>${aman(k.volume)}</td>
-        <td>${k.tahun}</td>
-        <td>${k.jumlah}</td>
-        <td>${tersedia(k)}</td>
-        <td>${aman(k.kondisi)}</td>
-        <td>
-          <div class="actions">
-            <button class="secondary"
-              onclick="editKoleksi('${k.id}')">Edit</button>
-            <button class="danger"
-              onclick="hapusKoleksi('${k.id}')">Hapus</button>
-          </div>
-        </td>
-      </tr>
-    `).join("")
-    : `<tr>
-        <td colspan="10" class="empty">
-          Data koleksi belum tersedia.
-        </td>
-      </tr>`;
-}
-
-// =============================
 // DATA TEMAN
-// =============================
 
-$("formTeman").addEventListener("submit", event => {
+$("temanForm").addEventListener("submit", event => {
   event.preventDefault();
 
-  const id = $("temanId").value;
+  const nama = $("namaTeman").value.trim();
+  const kontak = $("kontakTeman").value.trim();
 
-  const teman = {
-    id: id || buatId(),
-    nama: $("namaTeman").value.trim(),
-    kontak: $("kontakTeman").value.trim()
-  };
+  if (!nama) return;
 
-  if (!teman.nama) {
-    alert("Nama teman wajib diisi.");
-    return;
-  }
+  data.teman.push({
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    nama,
+    kontak
+  });
 
-  if (id) {
-    data.teman = data.teman.map(t =>
-      t.id === id ? teman : t
-    );
-  } else {
-    data.teman.push(teman);
-  }
-
-  simpanData();
-  resetFormTeman();
-  render();
+  simpan();
+  $("temanForm").reset();
+  renderSemua();
 });
 
-function resetFormTeman() {
-  $("formTeman").reset();
-  $("temanId").value = "";
-  $("judulFormTeman").textContent = "Tambah Teman";
+function renderTeman() {
+  $("tabelTeman").innerHTML = data.teman.map(t => `
+    <tr>
+      <td>${escapeHTML(t.nama)}</td>
+      <td>${escapeHTML(t.kontak || "-")}</td>
+      <td>
+        <button class="danger" data-hapus-teman="${t.id}">Hapus</button>
+      </td>
+    </tr>
+  `).join("");
+
+  if (!data.teman.length) {
+    $("tabelTeman").innerHTML =
+      '<tr><td colspan="3">Belum ada data teman.</td></tr>';
+  }
 }
 
-function editTeman(id) {
-  const t = temanById(id);
-  if (!t) return;
+$("tabelTeman").addEventListener("click", event => {
+  const tombol = event.target.closest("[data-hapus-teman]");
+  if (!tombol) return;
 
-  $("temanId").value = t.id;
-  $("namaTeman").value = t.nama;
-  $("kontakTeman").value = t.kontak;
-  $("judulFormTeman").textContent = "Edit Teman";
+  const id = tombol.dataset.hapusTeman;
 
-  document.querySelector('[data-page="teman"]').click();
-}
-
-function hapusTeman(id) {
-  const masihMeminjam = data.transaksi.some(
-    t => t.temanId === id &&
-         t.status === "Dipinjam"
-  );
-
-  if (masihMeminjam) {
+  if (data.pinjam.some(p => p.temanId === id && p.status === "Dipinjam")) {
     alert("Teman masih memiliki pinjaman aktif.");
     return;
   }
 
-  if (!confirm("Hapus data teman ini?")) return;
-
-  data.teman = data.teman.filter(t => t.id !== id);
-  simpanData();
-  render();
-}
-
-function renderTeman() {
-  $("tabelTeman").innerHTML = data.teman.length
-    ? data.teman.map(t => `
-      <tr>
-        <td>${aman(t.nama)}</td>
-        <td>${aman(t.kontak || "-")}</td>
-        <td>
-          <div class="actions">
-            <button class="secondary"
-              onclick="editTeman('${t.id}')">Edit</button>
-            <button class="danger"
-              onclick="hapusTeman('${t.id}')">Hapus</button>
-          </div>
-        </td>
-      </tr>
-    `).join("")
-    : `<tr>
-        <td colspan="3" class="empty">
-          Belum ada data teman.
-        </td>
-      </tr>`;
-}
-
-// =============================
-// PEMINJAMAN
-// =============================
-
-const hariIni = new Date();
-const batasDefault = new Date(hariIni);
-batasDefault.setDate(batasDefault.getDate() + 7);
-
-$("tanggalPinjam").value = tanggalLokal(hariIni);
-$("tanggalKembali").value = tanggalLokal(batasDefault);
-
-$("formPinjam").addEventListener("submit", event => {
-  event.preventDefault();
-
-  const koleksiId = $("pilihKoleksi").value;
-  const temanId = $("pilihTeman").value;
-  const tanggal = $("tanggalPinjam").value;
-  const batas = $("tanggalKembali").value;
-
-  const item = koleksiById(koleksiId);
-
-  if (!item || !temanById(temanId)) {
-    alert("Tambahkan koleksi dan data teman terlebih dahulu.");
-    return;
+  if (confirm("Hapus data teman ini?")) {
+    data.teman = data.teman.filter(t => t.id !== id);
+    data.pinjam = data.pinjam.filter(p => p.temanId !== id);
+    simpan();
+    renderSemua();
   }
-
-  if (tersedia(item) < 1) {
-    alert("Koleksi tidak tersedia.");
-    return;
-  }
-
-  if (!tanggal || !batas || batas < tanggal) {
-    alert("Tanggal pengembalian tidak boleh sebelum tanggal pinjam.");
-    return;
-  }
-
-  data.transaksi.push({
-    id: buatId(),
-    koleksiId,
-    temanId,
-    tanggal,
-    batas,
-    tanggalKembali: "",
-    status: "Dipinjam"
-  });
-
-  simpanData();
-  render();
-
-  alert("Peminjaman berhasil dicatat.");
 });
 
-function renderPilihan() {
-  const pilihanKoleksi = data.koleksi.filter(
-    k => tersedia(k) > 0
-  );
+// PEMINJAMAN DAN PENGEMBALIAN
 
-  $("pilihKoleksi").innerHTML =
-    '<option value="">-- Pilih koleksi --</option>' +
-    pilihanKoleksi.map(k => `
-      <option value="${k.id}">
-        ${aman(k.judul)} (tersedia: ${tersedia(k)})
+function renderPilihanPinjam() {
+  $("pilihTeman").innerHTML = data.teman.map(t => `
+    <option value="${t.id}">${escapeHTML(t.nama)}</option>
+  `).join("");
+
+  $("pilihBuku").innerHTML = data.buku
+    .filter(b => angkaTersedia(b) > 0)
+    .map(b => `
+      <option value="${b.id}">
+        ${escapeHTML(b.judul)} (tersedia ${angkaTersedia(b)})
       </option>
     `).join("");
 
-  $("pilihTeman").innerHTML =
-    '<option value="">-- Pilih teman --</option>' +
-    data.teman.map(t => `
-      <option value="${t.id}">${aman(t.nama)}</option>
-    `).join("");
-
-  $("pilihKoleksi").disabled = !pilihanKoleksi.length;
-  $("pilihTeman").disabled = !data.teman.length;
+  $("tanggalPinjam").value =
+    $("tanggalPinjam").value || new Date().toLocaleDateString("en-CA");
 }
 
-function kembalikan(id) {
-  const transaksi = data.transaksi.find(t => t.id === id);
+$("pinjamForm").addEventListener("submit", event => {
+  event.preventDefault();
 
+  const temanId = $("pilihTeman").value;
+  const bukuId = $("pilihBuku").value;
+  const tanggal = $("tanggalPinjam").value;
+
+  const buku = data.buku.find(b => b.id === bukuId);
+  const teman = data.teman.find(t => t.id === temanId);
+
+  if (!buku || !teman || !tanggal || angkaTersedia(buku) < 1) {
+    alert("Pastikan data teman dan buku tersedia.");
+    return;
+  }
+
+  data.pinjam.push({
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    temanId,
+    bukuId,
+    tanggal,
+    status: "Dipinjam",
+    tanggalKembali: ""
+  });
+
+  simpan();
+  renderSemua();
+  alert("Peminjaman berhasil dicatat.");
+});
+
+function renderPinjam() {
+  $("tabelPinjam").innerHTML = [...data.pinjam].reverse().map(p => {
+    const teman = data.teman.find(t => t.id === p.temanId);
+    const buku = data.buku.find(b => b.id === p.bukuId);
+
+    return `
+      <tr>
+        <td>${escapeHTML(teman?.nama || "Data teman tidak tersedia")}</td>
+        <td>${escapeHTML(buku?.judul || "Data buku tidak tersedia")}</td>
+        <td>${escapeHTML(p.tanggal)}</td>
+        <td>${p.status}${p.tanggalKembali
+          ? " (" + escapeHTML(p.tanggalKembali) + ")" : ""}</td>
+        <td>
+          ${p.status === "Dipinjam"
+            ? `<button data-kembali="${p.id}">Kembalikan</button>`
+            : "-"}
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  if (!data.pinjam.length) {
+    $("tabelPinjam").innerHTML =
+      '<tr><td colspan="5">Belum ada transaksi peminjaman.</td></tr>';
+  }
+}
+
+$("tabelPinjam").addEventListener("click", event => {
+  const tombol = event.target.closest("[data-kembali]");
+  if (!tombol) return;
+
+  const transaksi = data.pinjam.find(p => p.id === tombol.dataset.kembali);
   if (!transaksi || transaksi.status !== "Dipinjam") return;
 
-  if (!confirm("Konfirmasi pengembalian koleksi?")) return;
+  if (confirm("Catat buku ini sudah dikembalikan?")) {
+    transaksi.status = "Dikembalikan";
+    transaksi.tanggalKembali = new Date().toLocaleDateString("en-CA");
+    simpan();
+    renderSemua();
+  }
+});
 
-  transaksi.status = "Dikembalikan";
-  transaksi.tanggalKembali = tanggalLokal(new Date());
-
-  simpanData();
-  render();
-}
-
-function renderAktif() {
-  const aktif = data.transaksi.filter(
-    t => t.status === "Dipinjam"
-  );
-
-  $("tabelAktif").innerHTML = aktif.length
-    ? aktif.map(t => {
-      const k = koleksiById(t.koleksiId);
-      const p = temanById(t.temanId);
-
-      return `
-        <tr>
-          <td>${aman(k?.judul || "Data dihapus")}</td>
-          <td>${aman(p?.nama || "Data dihapus")}</td>
-          <td>${formatTanggal(t.tanggal)}</td>
-          <td>${formatTanggal(t.batas)}</td>
-          <td><span class="status borrowed">Dipinjam</span></td>
-          <td>
-            <button class="success"
-              onclick="kembalikan('${t.id}')">
-              Kembalikan
-            </button>
-          </td>
-        </tr>
-      `;
-    }).join("")
-    : `<tr>
-        <td colspan="6" class="empty">
-          Tidak ada peminjaman aktif.
-        </td>
-      </tr>`;
-}
-
-// =============================
-// DASHBOARD
-// =============================
+// DASHBOARD DAN LAPORAN
 
 function renderDashboard() {
-  $("totalKoleksi").textContent = data.koleksi.reduce(
-    (total, k) => total + k.jumlah, 0
+  const totalEksemplar = data.buku.reduce(
+    (jumlah, buku) => jumlah + Number(buku.stok), 0
   );
 
-  $("totalTersedia").textContent = data.koleksi.reduce(
-    (total, k) => total + tersedia(k), 0
-  );
-
-  $("totalDipinjam").textContent = data.transaksi.filter(
-    t => t.status === "Dipinjam"
+  const totalDipinjam = data.pinjam.filter(
+    p => p.status === "Dipinjam"
   ).length;
 
-  $("totalTeman").textContent = data.teman.length;
-
-  const aktif = data.transaksi.filter(
-    t => t.status === "Dipinjam"
+  const tersedia = data.buku.reduce(
+    (jumlah, buku) => jumlah + angkaTersedia(buku), 0
   );
 
-  $("ringkasanPinjaman").innerHTML = aktif.length
-    ? `<div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Judul</th>
-              <th>Peminjam</th>
-              <th>Batas Kembali</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${aktif.map(t => {
-              const k = koleksiById(t.koleksiId);
-              const p = temanById(t.temanId);
+  $("totalBuku").textContent = data.buku.length;
+  $("totalEksemplar").textContent = totalEksemplar;
+  $("totalDipinjam").textContent = totalDipinjam;
+  $("totalTeman").textContent = data.teman.length;
 
-              return `
-                <tr>
-                  <td>${aman(k?.judul || "Data dihapus")}</td>
-                  <td>${aman(p?.nama || "Data dihapus")}</td>
-                  <td>${formatTanggal(t.batas)}</td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
-        </table>
-      </div>`
-    : '<p class="empty">Belum ada peminjaman aktif.</p>';
+  $("laporanJudul").textContent = data.buku.length;
+  $("laporanTersedia").textContent = tersedia;
+  $("laporanTransaksi").textContent = data.pinjam.length;
 }
 
-// =============================
-// RIWAYAT PEMINJAMAN
-// =============================
-
-$("cariRiwayat").addEventListener("input", renderRiwayat);
-
-function renderRiwayat() {
-  const q = $("cariRiwayat").value.toLowerCase();
-
-  const hasil = [...data.transaksi]
-    .reverse()
-    .filter(t => {
-      const k = koleksiById(t.koleksiId);
-      const p = temanById(t.temanId);
-
-      return `${k?.judul || ""} ${p?.nama || ""}`
-        .toLowerCase()
-        .includes(q);
-    });
-
-  $("tabelRiwayat").innerHTML = hasil.length
-    ? hasil.map(t => {
-      const k = koleksiById(t.koleksiId);
-      const p = temanById(t.temanId);
-
-      const status = t.status === "Dipinjam"
-        ? '<span class="status borrowed">Dipinjam</span>'
-        : '<span class="status">Dikembalikan</span>';
-
-      return `
-        <tr>
-          <td>${aman(k?.judul || "Data dihapus")}</td>
-          <td>${aman(p?.nama || "Data dihapus")}</td>
-          <td>${formatTanggal(t.tanggal)}</td>
-          <td>${formatTanggal(t.batas)}</td>
-          <td>${formatTanggal(t.tanggalKembali)}</td>
-          <td>${status}</td>
-        </tr>
-      `;
-    }).join("")
-    : `<tr>
-        <td colspan="6" class="empty">
-          Belum ada riwayat transaksi.
-        </td>
-      </tr>`;
-}
-
-// Menampilkan seluruh data
-function render() {
-  renderDashboard();
-  renderKoleksi();
+function renderSemua() {
+  renderGenre();
+  renderBuku();
   renderTeman();
-  renderPilihan();
-  renderAktif();
-  renderRiwayat();
+  renderPilihanPinjam();
+  renderPinjam();
+  renderDashboard();
 }
 
-// Jalankan aplikasi
-render();
+$("cetakLaporan").addEventListener("click", () => window.print());
 
+renderSemua();
